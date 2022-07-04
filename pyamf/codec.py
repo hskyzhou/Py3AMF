@@ -505,6 +505,7 @@ class Encoder(_Codec):
             return self.writeNull
 
         t = type(data)
+        print('t', t)
 
         # try types that we know will work
         if t is bytes or issubclass(t, bytes):

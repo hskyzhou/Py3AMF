@@ -10,6 +10,7 @@ Provides XML support.
 #: list of supported third party packages that support the C{etree}
 #: interface. At least enough for our needs anyway.
 ETREE_MODULES = [
+    'xml.etree.ElementTree',
     'defusedxml.lxml',
     'defusedxml.cElementTree',
     'defusedxml.ElementTree',
@@ -108,6 +109,8 @@ def _get_etree_type(etree):
     interface.
     """
     e = etree.fromstring('<foo/>')
+    # import xml.etree.ElementTree as ET
+    # e = ET.fromstring('<foo/>')
 
     return _get_type(e)
 

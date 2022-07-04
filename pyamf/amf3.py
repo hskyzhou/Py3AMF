@@ -110,6 +110,8 @@ TYPE_XMLSTRING = b'\x0B'
 #: <http://osflash.org/documentation/amf3/parsing_byte_arrays>}
 TYPE_BYTEARRAY = b'\x0C'
 
+TYPE_DICTIONARY = b'\x11'
+
 #: Reference bit.
 REFERENCE_BIT = 0x01
 
@@ -261,6 +263,14 @@ class DataOutput(object):
         @param value: The object to be serialized.
         """
         self.encoder.writeElement(value)
+
+    def writeDictionary(self, value):
+        """
+        Writes an object to data stream in AMF serialized format.
+
+        @param value: The object to be serialized.
+        """
+        self.encoder.writeDictionary(value)
 
     def writeShort(self, value):
         """
@@ -531,6 +541,10 @@ class ByteArray(util.BufferedByteStream, DataInput, DataOutput):
         self.context.clear()
 
         return super(ByteArray, self).writeObject(obj)
+
+    def writeDictionary(self, obj):
+        self.context.clear()
+        return super(ByteArray, self).writeDictionary(obj)
 
     def __eq__(self, other):
         if isinstance(other, ByteArray):
@@ -855,6 +869,15 @@ class Decoder(codec.Decoder):
         """
         return self.stream.read_double()
 
+    def readInt(self):
+        """
+        Reads a signed 32-bit integer from the data stream.
+
+        @rtype: C{int}
+        @return: The returned value is in the range -2147483648 to 2147483647.
+        """
+        return self.stream.read_long()
+
     def readInteger(self, signed=True):
         """
         Reads and returns an integer from the stream.
@@ -1092,6 +1115,9 @@ class Decoder(codec.Decoder):
             return self.context.getObject(ref >> 1)
 
         xmlstring = self.stream.read(ref >> 1)
+
+        if type(xmlstring) in [bytes]:
+            xmlstring = xmlstring.decode('utf-8').replace('<<', '<')
 
         x = xml.fromstring(
             xmlstring,
@@ -1345,6 +1371,37 @@ class Encoder(codec.Encoder):
         self.stream.write(b'\x01')
 
         [self.writeElement(x) for x in n]
+
+    def writeDictionary(self, n, is_proxy=False):
+        """
+        Writes a C{tuple}, C{set} or C{list} to the stream.
+
+        @type n: One of C{__builtin__.tuple}, C{__builtin__.set}
+            or C{__builtin__.list}
+        @param n: The C{list} data to be encoded to the AMF3 data stream.
+        """
+        if self.use_proxies and not is_proxy:
+            self.writeProxy(n)
+            return
+
+
+        self.stream.write(TYPE_DICTIONARY)
+
+        self.context.addObject(n)
+
+        # ref = self.context.getObjectReference(n)
+        # print('ref', ref)
+        # if ref != -1:
+        #     self._writeInteger(ref << 1)
+        #     return
+
+        self._writeInteger((len(n) << 1) | REFERENCE_BIT)
+        self.stream.write_uchar(0x01)
+
+        for key in n:
+            self.writeElement(key)
+            self.writeElement(n[key])
+
 
     def writeDict(self, n):
         """
